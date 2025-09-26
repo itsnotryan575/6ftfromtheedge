@@ -6,6 +6,8 @@ import { FilterModal } from '../../components/FilterModal';
 import { AddReminderModal } from '../../components/AddReminderModal';
 import { EditReminderModal } from '../../components/EditReminderModal';
 import { DatabaseService } from '@/services/DatabaseService';
+import { enforceReminderLimit } from '@/components/ProGate';
+import { usePro } from '@/context/ProContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -27,6 +29,7 @@ export default function RemindersScreen() {
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isDark } = useTheme();
+  const { pro } = usePro();
 
   const colors = {
     background: isDark ? '#0B0909' : '#003C24',
@@ -44,11 +47,16 @@ export default function RemindersScreen() {
     loadReminders();
   }, []);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadReminders();
-    }, [])
-  );
+  const handleAddScheduledText = async () => {
+    // Check reminder limit for free users
+    if (!pro) {
+      const currentCount = await DatabaseService.getReminderCountThisMonth();
+      const canAdd = await enforceReminderLimit(currentCount);
+      if (!canAdd) return;
+    }
+    
+    setAddReminderModalVisible(true);
+  };
 
   const loadReminders = async () => {
     try {
